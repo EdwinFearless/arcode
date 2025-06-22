@@ -1,10 +1,36 @@
 const canvas = document.getElementById("ar-canvas");
 const arButton = document.getElementById("ar-button");
-const ctx = canvas.getContext("webgl", { antialias: true });
-
 let xrSession = null;
+let model = null;
 
-// Проверяем поддержку WebXR
+// Инициализация Three.js
+const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    antialias: true,
+    alpha: true
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+// Сцена и камера (настройки для AR)
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+// Загрузка 3D-модели
+const loader = new THREE.GLTFLoader();
+loader.load(
+    "./assets/model.glb",  // Путь к модели
+    (gltf) => {
+        model = gltf.scene;
+        scene.add(model);
+        console.log("3D Model loaded!");
+    },
+    undefined,
+    (error) => {
+        console.error("Error loading model:", error);
+    }
+);
+
+// Проверка поддержки WebXR
 if (navigator.xr) {
     navigator.xr.isSessionSupported("immersive-ar").then((supported) => {
         if (supported) {
@@ -20,15 +46,16 @@ if (navigator.xr) {
 // Запуск AR-сессии
 arButton.addEventListener("click", async () => {
     try {
-        xrSession = await navigator.xr.requestSession("immersive-ar", {
-            optionalFeatures: ["local-floor", "hand-tracking"]
-        });
-
-        xrSession.updateRenderState({
-            baseLayer: new XRWebGLLayer(xrSession, ctx)
-        });
-
-        xrSession.requestAnimationFrame(onXRFrame);
+        xrSession = await navigator.xr.requestSession("immersive-ar");
+        await renderer.xr.setSession(xrSession);
+        
+        // Настройка AR-пространства
+        const referenceSpace = await xrSession.requestReferenceSpace("local");
+        renderer.xr.enabled = true;
+        renderer.xr.setReferenceSpace(referenceSpace);
+        
+        // Запуск рендеринга
+        renderer.setAnimationLoop(onXRFrame);
         arButton.style.display = "none";
     } catch (error) {
         console.error("AR session failed:", error);
@@ -36,22 +63,7 @@ arButton.addEventListener("click", async () => {
     }
 });
 
-// Отрисовка AR-сцены
-function onXRFrame(time, xrFrame) {
-    const pose = xrFrame.getViewerPose(xrSession.referenceSpace);
-
-    if (pose) {
-        for (const view of pose.views) {
-            // Очищаем canvas
-            ctx.clearColor(0, 0, 0, 0);
-            ctx.clear(ctx.COLOR_BUFFER_BIT | ctx.DEPTH_BUFFER_BIT);
-
-            // Здесь можно добавить 3D-объекты
-            // Например, с использованием Three.js или Babylon.js
-        }
-    }
-
-    if (xrSession) {
-        xrSession.requestAnimationFrame(onXRFrame);
-    }
+// Отрисовка кадра в AR
+function onXRFrame() {
+    renderer.render(scene, camera);
 }
