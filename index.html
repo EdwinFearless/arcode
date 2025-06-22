@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Скелет с масштабированием | EdwinFearless</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Каркас | EdwinFearless</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
             background: #000;
-            touch-action: none;
         }
         #ar-container {
             position: fixed;
@@ -28,7 +28,6 @@
             border-radius: 30px;
             font-size: 16px;
             z-index: 100;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         #loading {
             position: absolute;
@@ -39,17 +38,16 @@
             font-size: 18px;
             text-align: center;
         }
-        #hint {
+        #instructions {
             position: absolute;
-            bottom: 80px;
+            top: 20px;
             left: 0;
             right: 0;
-            text-align: center;
             color: white;
-            background: rgba(0,0,0,0.5);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
             padding: 10px;
-            border-radius: 20px;
-            margin: 0 20px;
+            z-index: 100;
             display: none;
         }
     </style>
@@ -58,31 +56,15 @@
     <div id="ar-container"></div>
     <button id="ar-button">Запустить AR</button>
     <div id="loading">Загрузка 3D-модели...</div>
-    <div id="hint">Используйте два пальца для масштабирования</div>
+    <div id="instructions">
+        <p>🔹 Коснитесь экрана, чтобы разместить модель</p>
+        <p>🔹 Удерживайте и двигайте палец для перемещения</p>
+    </div>
 
-    <!-- Three.js и загрузчик моделей -->
+    <!-- Three.js и WebXR -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/XRControllerModelFactory.js"></script>
     <script src="app.js"></script>
-
-    <div id="instructions">
-    <p>1. Наведите камеру на поверхность</p>
-    <p>2. Коснитесь экрана, чтобы разместить модель</p>
-    <p>3. Перемещайте её, удерживая палец</p>
-</div>
-
-<style>
-    #instructions {
-        position: absolute;
-        top: 20px;
-        left: 0;
-        right: 0;
-        color: white;
-        text-align: center;
-        background: rgba(0, 0, 0, 0.5);
-        padding: 10px;
-        z-index: 100;
-    }
-</style>
 </body>
 </html>
