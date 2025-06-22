@@ -1,67 +1,60 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>AR Скелет  управлением | EdwinFearless</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR to AR | EdwinFearless</title>
     <style>
         body {
             margin: 0;
-            overflow: hidden;
+            padding: 20px;
             font-family: Arial, sans-serif;
-            -webkit-touch-callout: none;
-            touch-action: none;
+            text-align: center;
+            background: #f0f0f0;
         }
-        #ar-button {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 15px 30px;
+        #qr-scanner {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+            position: relative;
+        }
+        #qr-video {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #qr-result {
+            margin: 20px;
+            padding: 10px;
             background: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            display: none;
+        }
+        button {
+            padding: 12px 24px;
+            background: #007AFF;
             color: white;
             border: none;
             border-radius: 30px;
             font-size: 18px;
-            z-index: 100;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 20px;
-            text-align: center;
-        }
-        #instructions {
-            position: absolute;
-            top: 10px;
-            left: 0;
-            right: 0;
-            color: white;
-            text-align: center;
-            background: rgba(0,0,0,0.6);
-            padding: 10px;
-            z-index: 100;
+            cursor: pointer;
+            margin: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="instructions">
-        👉 Наведите камеру на поверхность<br>
-        👆 Коснитесь экрана, чтобы разместить модель<br>
-        ✋ Тащите пальцем, чтобы перемещать
+    <h1>Отсканируйте QR-код для AR</h1>
+    
+    <div id="qr-scanner">
+        <video id="qr-video" playsinline></video>
+        <div id="qr-result">QR-код распознан! Переход в AR...</div>
     </div>
+    
+    <button id="start-button">Запустить сканер</button>
+    <button id="stop-button" disabled>Остановить сканер</button>
 
-    <div id="loading">Загрузка 3D-модели...</div>
-    <button id="ar-button">Запустить AR</button>
-
-    <!-- Three.js и необходимые модули -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/XRControllerModelFactory.js"></script>
-    <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="qr-scanner.js"></script>
 </body>
 </html>
