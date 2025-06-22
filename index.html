@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebXR AR Demo by EdwinFearless</title>
+    <title>WebXR AR Demo with 3D Model | EdwinFearless</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; width: 100%; height: 100%; }
@@ -25,6 +25,10 @@
 <body>
     <canvas id="ar-canvas"></canvas>
     <button id="ar-button">Start AR</button>
+    
+    <!-- Three.js и загрузчик GLTF -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
