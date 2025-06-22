@@ -1,122 +1,121 @@
-// Основные переменные
-let scene, camera, renderer, model;
+let scene, camera, renderer, model, hitTestSource;
 let xrSession = null;
-let initialDistance = null;
-let scale = 1;
-const arButton = document.getElementById('ar-button');
-const loadingText = document.getElementById('loading');
-const hint = document.getElementById('hint');
+let isModelPlaced = false;
+let canMoveModel = false;
+const arButton = document.getElementById("ar-button");
+const loadingText = document.getElementById("loading");
 
 // Инициализация
 init();
 
 async function init() {
-    // 1. Создаем сцену Three.js
+    // 1. Проверяем поддержку WebXR
+    if (!navigator.xr) {
+        arButton.textContent = "WebXR не поддерживается";
+        return;
+    }
+
+    // 2. Создаем сцену Three.js
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
-    document.getElementById('ar-container').appendChild(renderer.domElement);
+    document.body.appendChild(renderer.domElement);
 
-    // 2. Проверяем поддержку WebXR
-    if (!navigator.xr) {
-        showError("WebXR не поддерживается в вашем браузере");
-        return;
-    }
-
-    const isARSupported = await navigator.xr.isSessionSupported('immersive-ar');
-    if (!isARSupported) {
-        showError("AR не поддерживается на вашем устройстве");
-        return;
-    }
-
-    // 3. Загружаем 3D-модель
-    await loadModel();
-
-    // 4. Настраиваем кнопку AR
-    arButton.addEventListener('click', startAR);
-    window.addEventListener('resize', onWindowResize);
-}
-
-// Загрузка 3D-модели
-async function loadModel() {
+    // 3. Загружаем модель
     const loader = new THREE.GLTFLoader();
     try {
-        const gltf = await loader.loadAsync('model/skeleton.glb');
+        const gltf = await loader.loadAsync("model/skeleton.glb");
         model = gltf.scene;
-        model.scale.set(0.5, 0.5, 0.5);
+        model.scale.set(0.3, 0.3, 0.3);
+        model.visible = false; // Сначала скрываем
         scene.add(model);
-        loadingText.style.display = 'none';
-        arButton.style.display = 'block';
+        loadingText.style.display = "none";
+        arButton.style.display = "block";
     } catch (error) {
-        showError("Ошибка загрузки модели");
-        console.error(error);
+        console.error("Ошибка загрузки модели:", error);
+        loadingText.textContent = "Ошибка загрузки модели";
+    }
+
+    // 4. Проверяем AR и настраиваем кнопку
+    if (await navigator.xr.isSessionSupported("immersive-ar")) {
+        arButton.addEventListener("click", startAR);
+    } else {
+        arButton.textContent = "AR не поддерживается";
     }
 }
 
 // Запуск AR-сессии
 async function startAR() {
     try {
-        xrSession = await navigator.xr.requestSession('immersive-ar', {
-            optionalFeatures: ['local-floor', 'hit-test']
+        xrSession = await navigator.xr.requestSession("immersive-ar", {
+            optionalFeatures: ["hit-test", "dom-overlay"],
+            domOverlay: { root: document.body }
         });
 
-        // Настройка WebXR
-        await renderer.xr.setSession(xrSession);
         renderer.xr.enabled = true;
+        renderer.xr.setReferenceSpaceType("local-floor");
 
-        // Добавляем обработчики жестов
-        const canvas = renderer.domElement;
-        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        // Обработка касаний для перемещения модели
+        document.addEventListener("touchstart", onTouchStart, { passive: false });
+        document.addEventListener("touchmove", onTouchMove, { passive: false });
 
-        // Показываем подсказку
-        hint.style.display = 'block';
-
-        // Запускаем рендеринг
-        renderer.setAnimationLoop(() => {
-            if (model) model.scale.set(scale, scale, scale);
-            renderer.render(scene, camera);
-        });
-
-        arButton.style.display = 'none';
+        // Основной цикл рендеринга
+        renderer.setAnimationLoop(onXRFrame);
+        arButton.style.display = "none";
     } catch (error) {
-        showError("Ошибка запуска AR: " + error.message);
-        console.error(error);
+        console.error("Ошибка AR:", error);
+        arButton.textContent = "Ошибка: " + error.message;
     }
 }
 
-// Обработка жестов масштабирования
-function handleTouchStart(e) {
-    if (e.touches.length === 2) {
-        initialDistance = getDistance(e.touches[0], e.touches[1]);
+// Обработка касаний
+function onTouchStart(e) {
+    e.preventDefault();
+    canMoveModel = isModelPlaced;
+}
+
+function onTouchMove(e) {
+    e.preventDefault();
+    if (!canMoveModel || !model) return;
+
+    // Получаем координаты касания
+    const touch = e.touches[0];
+    const mouse = new THREE.Vector2(
+        (touch.clientX / window.innerWidth) * 2 - 1,
+        -(touch.clientY / window.innerHeight) * 2 + 1
+    );
+
+    // Определяем новую позицию через Raycaster
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(scene.children);
+
+    if (intersects.length > 0) {
+        model.position.copy(intersects[0].point);
     }
 }
 
-function handleTouchMove(e) {
-    if (e.touches.length === 2 && initialDistance !== null) {
-        e.preventDefault();
-        const currentDistance = getDistance(e.touches[0], e.touches[1]);
-        scale = Math.min(Math.max(scale * (currentDistance / initialDistance), 0.3), 3);
-        initialDistance = currentDistance;
+// Основной цикл AR
+function onXRFrame(time, xrFrame) {
+    if (!xrFrame) return;
+
+    // Поиск поверхностей для размещения модели
+    const hitTest = xrFrame.getHitTestResults(hitTestSource);
+    if (hitTest.length > 0 && !isModelPlaced) {
+        const pose = hitTest[0].getPose(renderer.xr.getReferenceSpace());
+        model.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+        model.visible = true;
+        isModelPlaced = true;
     }
+
+    renderer.render(scene, camera);
 }
 
-// Вспомогательные функции
-function getDistance(touch1, touch2) {
-    const dx = touch1.clientX - touch2.clientX;
-    const dy = touch1.clientY - touch2.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-
-function onWindowResize() {
+// Адаптация под экран
+window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function showError(message) {
-    loadingText.textContent = message;
-    arButton.style.display = 'none';
-}
+});
