@@ -104,8 +104,10 @@ function onTouchStart(e) {
 }
 
 function onTouchMove(e) {
-    if (!isDragging || !model) return;
-    e.preventDefault();
+    if (e.touches.length == 2) {
+    const pinchDist = /* расчет расстояния между пальцами */
+    model.scale.setScalar(pinchDist * 0.01);
+}
     
     // Получаем координаты касания
     const touch = e.touches[0];
