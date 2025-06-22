@@ -56,4 +56,9 @@ function scanQR() {
     } else {
         requestAnimationFrame(scanQR);
     }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  alert("Ваш браузер не поддерживает доступ к камере");
+  return;
+}
 }
