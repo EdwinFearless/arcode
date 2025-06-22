@@ -9,6 +9,23 @@
             margin: 0; 
             overflow: hidden; 
             font-family: Arial, sans-serif;
+            background: #121212;
+            color: white;
+            text-align: center;
+        }
+        #ar-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #qr-instructions {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
         }
         #ar-button {
             position: absolute;
@@ -36,16 +53,15 @@
     </style>
 </head>
 <body>
-    <!-- Контейнер для Three.js -->
+    <div id="qr-instructions">
+        <h2>🔍 Отсканируйте QR-код для запуска AR</h2>
+        <p>Наведите камеру смартфона на QR-код, чтобы открыть этот сайт.</p>
+    </div>
+
     <div id="ar-container"></div>
-    
-    <!-- Кнопка запуска AR -->
     <button id="ar-button" style="display: none;">Запустить AR</button>
-    
-    <!-- Индикатор загрузки -->
     <div id="loading">Загрузка 3D-модели...</div>
 
-    <!-- Подключаем Three.js и GLTFLoader -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.min.js"></script>
     <script src="app.js"></script>
