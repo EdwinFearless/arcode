@@ -1,63 +1,57 @@
+const canvas = document.getElementById("ar-canvas");
+const arButton = document.getElementById("ar-button");
+const ctx = canvas.getContext("webgl", { antialias: true });
+
+let xrSession = null;
+
 // Проверяем поддержку WebXR
 if (navigator.xr) {
-    console.log("WebXR supported!");
-} else {
-    alert("WebXR не поддерживается в вашем браузере. Попробуйте Chrome или Firefox Reality.");
-}
-
-// Инициализация Three.js + WebXR
-let scene, camera, renderer, cube;
-
-init();
-animate();
-
-function init() {
-    // Сцена
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
-
-    // Камера
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 5;
-
-    // Рендерер
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;  // Включаем WebXR
-    document.body.appendChild(renderer.domElement);
-
-    // Куб (тестовый объект)
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-
-    // Кнопка для запуска AR
-    const button = document.createElement('button');
-    button.textContent = 'START AR';
-    button.style.position = 'absolute';
-    button.style.top = '20px';
-    button.style.left = '50%';
-    button.style.transform = 'translateX(-50%)';
-    button.addEventListener('click', startAR);
-    document.body.appendChild(button);
-}
-
-function startAR() {
-    if (navigator.xr) {
-        navigator.xr.requestSession('immersive-ar').then((session) => {
-            renderer.xr.setSession(session);
-            session.addEventListener('end', () => window.location.reload());
-        }).catch(console.error);
-    } else {
-        alert("AR не поддерживается!");
-    }
-}
-
-function animate() {
-    renderer.setAnimationLoop(() => {
-        cube.rotation.x += 0.01;
-        cube.rotation.y += 0.01;
-        renderer.render(scene, camera);
+    navigator.xr.isSessionSupported("immersive-ar").then((supported) => {
+        if (supported) {
+            arButton.style.display = "block";
+        } else {
+            arButton.textContent = "AR not supported";
+        }
     });
+} else {
+    arButton.textContent = "WebXR not available";
+}
+
+// Запуск AR-сессии
+arButton.addEventListener("click", async () => {
+    try {
+        xrSession = await navigator.xr.requestSession("immersive-ar", {
+            optionalFeatures: ["local-floor", "hand-tracking"]
+        });
+
+        xrSession.updateRenderState({
+            baseLayer: new XRWebGLLayer(xrSession, ctx)
+        });
+
+        xrSession.requestAnimationFrame(onXRFrame);
+        arButton.style.display = "none";
+    } catch (error) {
+        console.error("AR session failed:", error);
+        arButton.textContent = "AR Error";
+    }
+});
+
+// Отрисовка AR-сцены
+function onXRFrame(time, xrFrame) {
+    const pose = xrFrame.getViewerPose(xrSession.referenceSpace);
+
+    if (pose) {
+        for (const view of pose.views) {
+            // Очищаем canvas
+            ctx.clearColor(0, 0, 0, 0);
+            ctx.clear(ctx.COLOR_BUFFER_BIT | ctx.DEPTH_BUFFER_BIT);
+
+            // Здесь можно добавить 3D-объекты
+            // Например, с использованием Three.js или Babylon.js
+        }
+    }
+
+    if (xrSession) {
+        xrSession.requestAnimationFrame(onXRFrame);
+    }
 }
