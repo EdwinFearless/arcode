@@ -2,15 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Скелет с обнаружением поверхностей</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Скелет с масштабированием | EdwinFearless</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            font-family: Arial, sans-serif;
             background: #000;
-            color: white;
+            touch-action: none;
+        }
+        #ar-container {
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
         #ar-button {
             position: absolute;
@@ -31,243 +35,34 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            text-align: center;
-        }
-        #scanning-message {
-            position: absolute;
-            top: 20%;
-            left: 0;
-            right: 0;
-            text-align: center;
+            color: white;
             font-size: 18px;
-            display: none;
+            text-align: center;
         }
-        #placement-instruction {
+        #hint {
             position: absolute;
             bottom: 80px;
             left: 0;
             right: 0;
             text-align: center;
-            font-size: 16px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 20px;
+            margin: 0 20px;
             display: none;
         }
     </style>
 </head>
 <body>
-    <!-- Контейнер для Three.js -->
     <div id="ar-container"></div>
-    
-    <!-- Элементы интерфейса -->
-    <div id="loading">Загрузка 3D-модели...</div>
-    <div id="scanning-message">Сканируйте поверхность...</div>
-    <div id="placement-instruction">Коснитесь экрана, чтобы разместить модель</div>
     <button id="ar-button">Запустить AR</button>
+    <div id="loading">Загрузка 3D-модели...</div>
+    <div id="hint">Используйте два пальца для масштабирования</div>
 
-    <!-- Three.js и зависимости -->
+    <!-- Three.js и загрузчик моделей -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/XRControllerEventFactory.js"></script>
-    
-    <script>
-        // Основные переменные
-        let scene, camera, renderer, model;
-        let xrSession = null, hitTestSource = null;
-        let reticle = null;
-        let placementAllowed = false;
-        
-        // Элементы интерфейса
-        const arButton = document.getElementById("ar-button");
-        const loadingText = document.getElementById("loading");
-        const scanningMessage = document.getElementById("scanning-message");
-        const placementInstruction = document.getElementById("placement-instruction");
-
-        // Инициализация приложения
-        async function init() {
-            // 1. Настройка Three.js сцены
-            setupScene();
-            
-            // 2. Загрузка 3D-модели
-            await loadModel();
-            
-            // 3. Проверка поддержки AR
-            if (await checkARSupport()) {
-                arButton.addEventListener("click", startAR);
-            }
-        }
-
-        function setupScene() {
-            // Создаем сцену
-            scene = new THREE.Scene();
-            
-            // Настройка камеры
-            camera = new THREE.PerspectiveCamera(
-                50, 
-                window.innerWidth / window.innerHeight, 
-                0.1, 
-                1000
-            );
-            
-            // Настройка рендерера
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: true, 
-                alpha: true 
-            });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.getElementById("ar-container").appendChild(renderer.domElement);
-            
-            // Добавляем освещение
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(ambientLight);
-            
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 1, 0);
-            scene.add(directionalLight);
-            
-            // Создаем ретикулу для индикации поверхности
-            reticle = new THREE.Mesh(
-                new THREE.RingGeometry(0.1, 0.15, 32).rotateX(-Math.PI / 2),
-                new THREE.MeshBasicMaterial({ 
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 0.8
-                })
-            );
-            reticle.visible = false;
-            reticle.matrixAutoUpdate = false;
-            scene.add(reticle);
-        }
-
-        async function loadModel() {
-            const loader = new THREE.GLTFLoader();
-            try {
-                // Загружаем модель (замените на свой путь)
-                const gltf = await loader.loadAsync("model/skeleton.glb");
-                model = gltf.scene;
-                
-                // Настройка модели
-                model.scale.set(0.3, 0.3, 0.3);
-                model.visible = false;
-                
-                // Оптимизация материалов
-                model.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                        if (child.material) {
-                            child.material.metalness = 0.2;
-                            child.material.roughness = 0.6;
-                        }
-                    }
-                });
-                
-                scene.add(model);
-                loadingText.style.display = "none";
-                arButton.style.display = "block";
-            } catch (error) {
-                console.error("Ошибка загрузки модели:", error);
-                loadingText.textContent = "Ошибка загрузки модели";
-            }
-        }
-
-        async function checkARSupport() {
-            if (!navigator.xr) {
-                arButton.textContent = "WebXR не поддерживается";
-                return false;
-            }
-            
-            try {
-                const isSupported = await navigator.xr.isSessionSupported("immersive-ar");
-                if (!isSupported) {
-                    arButton.textContent = "AR не поддерживается";
-                }
-                return isSupported;
-            } catch (error) {
-                console.error("Ошибка проверки AR:", error);
-                return false;
-            }
-        }
-
-        async function startAR() {
-            try {
-                // Запускаем AR-сессию
-                xrSession = await navigator.xr.requestSession("immersive-ar", {
-                    optionalFeatures: ["hit-test", "dom-overlay"],
-                    domOverlay: { root: document.body }
-                });
-                
-                // Настройка WebXR
-                await renderer.xr.setSession(xrSession);
-                renderer.xr.enabled = true;
-                
-                // Создаем hit-test источник
-                const viewerSpace = await xrSession.requestReferenceSpace("viewer");
-                hitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
-                
-                // Показываем UI
-                scanningMessage.style.display = "block";
-                arButton.style.display = "none";
-                
-                // Запускаем рендер-цикл
-                renderer.setAnimationLoop(onXRFrame);
-                
-            } catch (error) {
-                console.error("Ошибка AR:", error);
-                arButton.textContent = "Ошибка запуска AR";
-            }
-        }
-
-        function onXRFrame(time, xrFrame) {
-            // Проверяем поверхности
-            if (xrFrame && hitTestSource) {
-                const hitTestResults = xrFrame.getHitTestResults(hitTestSource);
-                
-                if (hitTestResults.length > 0) {
-                    const hitPose = hitTestResults[0].getPose(xrSession.referenceSpace);
-                    
-                    // Обновляем ретикулу
-                    reticle.visible = true;
-                    reticle.matrix.fromArray(hitPose.transform.matrix);
-                    
-                    // Разрешаем размещение
-                    if (!placementAllowed) {
-                        placementAllowed = true;
-                        placementInstruction.style.display = "block";
-                        scanningMessage.style.display = "none";
-                    }
-                } else {
-                    reticle.visible = false;
-                    if (placementAllowed) {
-                        placementAllowed = false;
-                        placementInstruction.style.display = "none";
-                        scanningMessage.style.display = "block";
-                    }
-                }
-            }
-            
-            // Отрисовка сцены
-            renderer.render(scene, camera);
-        }
-
-        // Обработка клика для размещения модели
-        document.addEventListener("click", (e) => {
-            if (placementAllowed && model && !model.visible) {
-                model.position.setFromMatrixPosition(reticle.matrix);
-                model.visible = true;
-                reticle.visible = false;
-                placementInstruction.style.display = "none";
-            }
-        });
-
-        // Обработка изменения размера окна
-        window.addEventListener("resize", () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // Запуск приложения
-        init();
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
