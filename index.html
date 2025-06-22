@@ -3,184 +3,61 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <title>AR Скелет с продвинутым освещением</title>
+    <title>AR Скелет с управлением | EdwinFearless</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        #ar-button {
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
+        }
+        #ar-container { position: relative; width: 100%; height: 100vh; }
+        #scanning-message {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            z-index: 100;
+        }
+        #controls {
             position: absolute;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 12px 24px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        .control-btn {
+            padding: 10px 15px;
             background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 30px;
+            border-radius: 5px;
             font-size: 16px;
-            z-index: 100;
-        }
-        #loading { 
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 18px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <div id="ar-container"></div>
-    <button id="ar-button">Запустить AR</button>
-    <div id="loading">Загрузка...</div>
+    
+    <!-- Сообщение о сканировании -->
+    <div id="scanning-message">🔍 Наведите камеру на горизонтальную поверхность</div>
+    
+    <!-- Кнопки управления -->
+    <div id="controls" style="display: none;">
+        <button class="control-btn" id="scale-up">+ Масштаб</button>
+        <button class="control-btn" id="scale-down">- Масштаб</button>
+        <button class="control-btn" id="move-btn">Переместить</button>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.min.js"></script>
-    <script>
-        // Инициализация сцены
-        let scene, camera, renderer, model, mixers = [];
-        let xrSession = null;
-        const container = document.getElementById("ar-container");
-        const arButton = document.getElementById("ar-button");
-        const loadingText = document.getElementById("loading");
-
-        // Текстура бетона (запасной вариант если нет текстуры)
-        const concreteTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg', () => {
-            concreteTexture.wrapS = concreteTexture.wrapT = THREE.RepeatWrapping;
-            concreteTexture.repeat.set(4, 4);
-        });
-
-        // Инициализация
-        async function init() {
-            // 1. Создаем сцену
-            scene = new THREE.Scene();
-            scene.background = null;
-            
-            // 2. Настраиваем камеру
-            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
-            // 3. Настраиваем рендерер с тенями
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            container.appendChild(renderer.domElement);
-            
-            // 4. Добавляем 4 прожектора по сторонам
-            const spotlights = [];
-            const positions = [
-                { x: 5, y: 3, z: 0 },
-                { x: -5, y: 3, z: 0 },
-                { x: 0, y: 3, z: 5 },
-                { x: 0, y: 3, z: -5 }
-            ];
-            
-            positions.forEach(pos => {
-                const spotlight = new THREE.SpotLight(0xffffff, 1, 20, Math.PI/6, 0.5);
-                spotlight.position.set(pos.x, pos.y, pos.z);
-                spotlight.target.position.set(0, 0, 0);
-                spotlight.castShadow = true;
-                spotlight.shadow.mapSize.width = 1024;
-                spotlight.shadow.mapSize.height = 1024;
-                scene.add(spotlight);
-                scene.add(spotlight.target);
-                spotlights.push(spotlight);
-            });
-            
-            // 5. Добавляем окружающий свет
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-            scene.add(ambientLight);
-            
-            // 6. Загружаем модель
-            await loadModel();
-            
-            // 7. Проверяем поддержку AR
-            if (await checkARSupport()) {
-                arButton.addEventListener("click", startAR);
-            }
-        }
-
-        // Загрузка модели с бетонным материалом
-        async function loadModel() {
-            const loader = new THREE.GLTFLoader();
-            try {
-                const gltf = await loader.loadAsync("model/skeleton.glb");
-                model = gltf.scene;
-                
-                // Применяем бетонный материал ко всем частям модели
-                const concreteMaterial = new THREE.MeshStandardMaterial({
-                    map: concreteTexture,
-                    roughness: 0.8,
-                    metalness: 0.2,
-                    bumpMap: concreteTexture,
-                    bumpScale: 0.05
-                });
-                
-                model.traverse(child => {
-                    if (child.isMesh) {
-                        child.material = concreteMaterial;
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
-                
-                model.scale.set(0.3, 0.3, 0.3);
-                scene.add(model);
-                loadingText.style.display = "none";
-                arButton.style.display = "block";
-            } catch (error) {
-                console.error("Ошибка загрузки модели:", error);
-                loadingText.textContent = "Ошибка загрузки модели";
-            }
-        }
-
-        // Проверка поддержки AR
-        async function checkARSupport() {
-            if (!navigator.xr) {
-                arButton.textContent = "WebXR не поддерживается";
-                return false;
-            }
-            const isSupported = await navigator.xr.isSessionSupported("immersive-ar");
-            if (!isSupported) {
-                arButton.textContent = "AR не поддерживается";
-            }
-            return isSupported;
-        }
-
-        // Запуск AR
-        async function startAR() {
-            try {
-                xrSession = await navigator.xr.requestSession("immersive-ar");
-                await renderer.xr.setSession(xrSession);
-                renderer.xr.enabled = true;
-                renderer.setAnimationLoop(render);
-                arButton.style.display = "none";
-            } catch (error) {
-                console.error("Ошибка AR:", error);
-                arButton.textContent = "Ошибка запуска AR";
-            }
-        }
-
-        // Рендеринг с динамическим освещением
-        function render() {
-            // Динамическое обновление освещения
-            if (model) {
-                const time = Date.now() * 0.001;
-                model.rotation.y = time * 0.5;
-            }
-            
-            renderer.render(scene, camera);
-        }
-
-        // Запуск приложения
-        init();
-
-        // Адаптация к размеру экрана
-        window.addEventListener("resize", () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/XRControllerModelFactory.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
